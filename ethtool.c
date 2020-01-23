@@ -1710,6 +1710,16 @@ static char *so_timestamping_labels[N_SOTS] = {
 	"hardware-raw-clock    (SOF_TIMESTAMPING_RAW_HARDWARE)",
 };
 
+#define N_XDPFEATURES 5
+
+static const char *xdpfeatures_labels[N_XDPFEATURES] = {
+	"xdp-pass              (FOOBAAARR_XDP_FOOBAR)",
+	"xdp-drop              (FOOBAAARR_XDP_FOOBAR)",
+	"xdp-abort             (FOOBAAARR_XDP_FOOBAR)",
+	"xdp-tx                (FOOBAAARR_XDP_FOOBAR)",
+	"xdp-redirect          (FOOBAAARR_XDP_FOOBAR)",
+};
+
 #define N_TX_TYPES (HWTSTAMP_TX_ONESTEP_SYNC + 1)
 
 static char *tx_type_labels[N_TX_TYPES] = {
@@ -4553,6 +4563,56 @@ static int do_setfwdump(struct cmd_context *ctx)
 	return 0;
 }
 
+static int dump_xdpfeatures(u32 features)
+{
+	int i;
+
+	fprintf(stdout, "XDP Features:\n");
+
+	for (i = 0; i < N_XDPFEATURES; i++) {
+		if (features & (1 << i))
+			fprintf(stdout, "\t%s\n", xdpfeatures_labels[i]);
+	}
+
+	return 0;
+}
+
+static int do_gxdpfeatures(struct cmd_context *ctx)
+{
+	struct ethtool_value xdpfeatures;
+
+	if (ctx->argc != 0)
+		exit_bad_args();
+
+	xdpfeatures.cmd = ETHTOOL_GXDPFEATURES;
+	if (send_ioctl(ctx, &xdpfeatures)) {
+		perror("Cannot get XDP features");
+		return 1;
+	}
+
+	dump_xdpfeatures(xdpfeatures.data);
+	return 0;
+}
+
+static int do_sxdpfeatures(struct cmd_context *ctx)
+{
+	struct ethtool_value xdpfeatures;
+
+	if (ctx->argc != 0)
+		exit_bad_args();
+
+	xdpfeatures.cmd = ETHTOOL_SXDPFEATURES;
+	xdpfeatures.data = 0x3;
+
+	if (send_ioctl(ctx, &xdpfeatures)) {
+		perror("Cannot set XDP features");
+		return 1;
+	}
+
+	dump_xdpfeatures(xdpfeatures.data);
+	return 0;
+}
+
 static int do_gprivflags(struct cmd_context *ctx)
 {
 	struct ethtool_gstrings *strings;
@@ -5429,6 +5489,8 @@ static const struct option {
 	  "               [ tx N ]\n"
 	  "               [ other N ]\n"
 	  "               [ combined N ]\n" },
+	{ "--show-xdp-features", 1, do_gxdpfeatures, "Query xdp features" },
+	{ "--set-xdp-features", 1, do_sxdpfeatures, "Set xdp features (debug only)" },
 	{ "--show-priv-flags", 1, do_gprivflags, "Query private flags" },
 	{ "--set-priv-flags", 1, do_sprivflags, "Set private flags",
 	  "		FLAG on|off ...\n" },
